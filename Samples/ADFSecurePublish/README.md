@@ -38,6 +38,27 @@ Any subscription which you wish to deploy a Data Factory must be associated with
     $azureAdApplication.ApplicationId.Guid
 8.  Add the secret corresponding to the KeyVaultCertClientId variable (generated above in step 4) to the KeyVault and assign the identifier SecurePublishAdfClientSecret to it.
 
+
+# How to associate a cert with a Key Vault
+To begin, you need to already have a certificate that you will use to associate with the key vault. You will also need to have a Key Vault set up. If you don’t have one already created, you can set one up in the Azure portal. We will also create a new AAD app so note the AAD app ID (bullet point 5) this will be used in the KeyVault Certificate Client ID user setting. 
+1. Open up PowerShell
+2. Log in to Azure by typing in the cmd: 
+	Login-AzureRmAccount
+3. Change to the subscription you wish to use by typing the cmd: 
+	Select-AzureRmSubscription -SubscriptionId "&lt;enter subscription ID here&gt;"
+4. Import your certificate (.cer file). If you have a .pfx file you can export the cer file from it. Enter the following commands in powershell:  
+	$x509 = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2  
+	$x509.Import("&lt;Enter path to cer file here&gt;")  
+	$now = [System.DateTime]::Now  
+	$yearfromnow = [System.DateTime]::Parse("2022-07-31") #&lt;Put the end date the same as the expiry date of the certificate&gt;  
+	$credValue = [System.Convert]::ToBase64String($x509.GetRawCertData())
+5. Create a new AD application by entering the cmd: 
+	$adapp = New-AzureRmADApplication -DisplayName "&lt;Enter a name of AAD app&gt;" -HomePage "&lt;Enter a URL here, it can be anything&gt;" -IdentifierUris "&lt;Enter a unique URL here, it can be anything&gt;" -CertValue $credValue -StartDate $now -EndDate $yearfromnow
+6. Create an AD service principal for this application and associate it with the Key vault:
+	$sp = New-AzureRmADServicePrincipal -ApplicationId $adapp.ApplicationId  
+	Set-AzureRmKeyVaultAccessPolicy -VaultName '&lt;Enter name of Key Vault&gt;' -ServicePrincipalName $adapp.ApplicationId.Guid -PermissionsToSecrets get
+
+
 # Configuring Secure Publish user settings
 The settings required for Secure Publish can be configured by going to
 
